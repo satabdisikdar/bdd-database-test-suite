@@ -1,4 +1,4 @@
-# BDD Database Test Automation Suite
+# BDD Python Database Test Automation Suite
 
 A comprehensive Behavior-Driven Development (BDD) test automation suite for relational database testing using Python and Behave.
 
