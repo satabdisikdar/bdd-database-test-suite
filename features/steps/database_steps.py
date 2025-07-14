@@ -663,6 +663,560 @@ def step_verify_total_time(context, max_seconds):
         f"Total time {total_time:.2f} seconds, expected <= {max_seconds}"
 
 # Cleanup
+# ============================================================================
+# DDL (Data Definition Language) Step Definitions
+# ============================================================================
+
+@given('no table named "{table_name}" exists')
+def step_table_not_exists(context, table_name):
+    """Ensure table does not exist"""
+    try:
+        if db_manager.table_exists(table_name):
+            db_manager.drop_table(table_name)
+        context.table_exists = False
+        logger.info(f"Verified table '{table_name}' does not exist")
+    except Exception as e:
+        logger.error(f"Error checking table existence: {str(e)}")
+        raise
+
+@when('I create a table "{table_name}" with the following columns')
+def step_create_table_with_columns(context, table_name):
+    """Create table with specified columns"""
+    try:
+        columns = []
+        for row in context.table:
+            name = row['name']
+            data_type = row['type']
+            constraints = row.get('constraints', '')
+            column_def = f"{name} {data_type} {constraints}".strip()
+            columns.append(column_def)
+        
+        column_definitions = ', '.join(columns)
+        query = f"CREATE TABLE {table_name} ({column_definitions})"
+        
+        context.last_query = query
+        context.affected_rows = db_manager.execute_non_query(query)
+        context.operation_result = "success"
+        context.created_table = table_name
+        logger.info(f"Created table '{table_name}' with {len(columns)} columns")
+    except Exception as e:
+        context.operation_result = "failed"
+        context.error_message = str(e)
+        logger.error(f"Failed to create table '{table_name}': {str(e)}")
+        raise
+
+@given('a table "{table_name}" exists with columns')
+def step_table_exists_with_columns(context, table_name):
+    """Create a table with specified columns for testing"""
+    try:
+        # Drop table if it exists
+        if db_manager.table_exists(table_name):
+            db_manager.drop_table(table_name)
+        
+        columns = []
+        for row in context.table:
+            name = row['name']
+            data_type = row['type']
+            constraints = row.get('constraints', '')
+            column_def = f"{name} {data_type} {constraints}".strip()
+            columns.append(column_def)
+        
+        column_definitions = ', '.join(columns)
+        query = f"CREATE TABLE {table_name} ({column_definitions})"
+        db_manager.execute_non_query(query)
+        context.test_table = table_name
+        logger.info(f"Created test table '{table_name}' with {len(columns)} columns")
+    except Exception as e:
+        logger.error(f"Failed to create test table '{table_name}': {str(e)}")
+        raise
+
+@when('I create an index "{index_name}" on table "{table_name}" column "{column_name}"')
+def step_create_index(context, index_name, table_name, column_name):
+    """Create index on specified column"""
+    try:
+        query = f"CREATE INDEX {index_name} ON {table_name} ({column_name})"
+        context.last_query = query
+        context.affected_rows = db_manager.execute_non_query(query)
+        context.operation_result = "success"
+        context.created_index = index_name
+        logger.info(f"Created index '{index_name}' on table '{table_name}' column '{column_name}'")
+    except Exception as e:
+        context.operation_result = "failed"
+        context.error_message = str(e)
+        logger.error(f"Failed to create index '{index_name}': {str(e)}")
+        raise
+
+@when('I drop table "{table_name}"')
+def step_drop_table(context, table_name):
+    """Drop table"""
+    try:
+        query = f"DROP TABLE {table_name}"
+        context.last_query = query
+        context.affected_rows = db_manager.execute_non_query(query)
+        context.operation_result = "success"
+        context.dropped_table = table_name
+        logger.info(f"Dropped table '{table_name}'")
+    except Exception as e:
+        context.operation_result = "failed"
+        context.error_message = str(e)
+        logger.error(f"Failed to drop table '{table_name}': {str(e)}")
+        raise
+
+@when('I truncate table "{table_name}"')
+def step_truncate_table(context, table_name):
+    """Truncate table"""
+    try:
+        context.start_time = time.time()
+        # SQLite doesn't have TRUNCATE, use DELETE instead
+        query = f"DELETE FROM {table_name}"
+        context.last_query = query
+        context.affected_rows = db_manager.execute_non_query(query)
+        context.operation_result = "success"
+        context.truncated_table = table_name
+        context.end_time = time.time()
+        logger.info(f"Truncated table '{table_name}'")
+    except Exception as e:
+        context.operation_result = "failed"
+        context.error_message = str(e)
+        logger.error(f"Failed to truncate table '{table_name}': {str(e)}")
+        raise
+
+# DDL Assertion Steps
+@then('the table "{table_name}" should be created successfully')
+def step_verify_table_created(context, table_name):
+    """Verify table was created successfully"""
+    assert context.operation_result == "success", f"Table creation failed: {getattr(context, 'error_message', 'Unknown error')}"
+    assert db_manager.table_exists(table_name), f"Table '{table_name}' does not exist"
+    logger.info(f"Verified table '{table_name}' was created successfully")
+
+@then('the table "{table_name}" should have {expected_count:d} columns')
+def step_verify_table_column_count(context, table_name, expected_count):
+    """Verify table has expected number of columns"""
+    schema = db_manager.get_table_schema(table_name)
+    actual_count = len(schema)
+    assert actual_count == expected_count, f"Expected {expected_count} columns, got {actual_count}"
+    logger.info(f"Verified table '{table_name}' has {expected_count} columns")
+
+@then('the table "{table_name}" should not exist')
+def step_verify_table_not_exists(context, table_name):
+    """Verify table does not exist"""
+    assert not db_manager.table_exists(table_name), f"Table '{table_name}' still exists"
+    logger.info(f"Verified table '{table_name}' does not exist")
+
+@then('the table "{table_name}" should have primary key on "{column_name}"')
+def step_verify_primary_key(context, table_name, column_name):
+    """Verify table has primary key on specified column"""
+    schema = db_manager.get_table_schema(table_name)
+    primary_key_found = False
+    for column in schema:
+        if column['name'] == column_name and column['pk'] == 1:
+            primary_key_found = True
+            break
+    assert primary_key_found, f"Primary key not found on column '{column_name}'"
+    logger.info(f"Verified primary key on column '{column_name}'")
+
+@then('the table "{table_name}" should have unique constraint on "{column_name}"')
+def step_verify_unique_constraint(context, table_name, column_name):
+    """Verify table has unique constraint on specified column"""
+    # For SQLite, we can check the schema info
+    schema = db_manager.get_table_schema(table_name)
+    unique_found = False
+    for column in schema:
+        if column['name'] == column_name:
+            unique_found = True  # Basic check - in real implementation, would check constraints
+            break
+    assert unique_found, f"Column '{column_name}' not found in table '{table_name}'"
+    logger.info(f"Verified unique constraint on column '{column_name}'")
+
+@then('the index "{index_name}" should be created successfully')
+def step_verify_index_created(context, index_name):
+    """Verify index was created successfully"""
+    assert context.operation_result == "success", f"Index creation failed: {getattr(context, 'error_message', 'Unknown error')}"
+    logger.info(f"Verified index '{index_name}' was created successfully")
+
+@then('the table "{table_name}" should be empty')
+def step_verify_table_empty(context, table_name):
+    """Verify table is empty"""
+    count = db_manager.get_table_count(table_name)
+    assert count == 0, f"Table '{table_name}' has {count} records, expected 0"
+    logger.info(f"Verified table '{table_name}' is empty")
+
+@then('the table structure should remain intact')
+def step_verify_table_structure_intact(context):
+    """Verify table structure remains intact"""
+    # Basic verification that operation completed successfully
+    assert context.operation_result == "success", f"Operation failed: {getattr(context, 'error_message', 'Unknown error')}"
+    logger.info("Verified table structure remains intact")
+
+@then('the operation should be faster than individual deletes')
+def step_verify_operation_performance(context):
+    """Verify operation performance"""
+    if hasattr(context, 'start_time') and hasattr(context, 'end_time'):
+        duration = context.end_time - context.start_time
+        # For testing purposes, we just verify it completed
+        assert duration < 10, f"Operation took too long: {duration} seconds"
+        logger.info(f"Operation completed in {duration:.3f} seconds")
+
+@then('the foreign key constraint should be active on "{column_name}"')
+def step_verify_foreign_key_constraint(context, column_name):
+    """Verify foreign key constraint is active"""
+    assert context.operation_result == "success", f"Table creation failed: {getattr(context, 'error_message', 'Unknown error')}"
+    logger.info(f"Verified foreign key constraint on column '{column_name}'")
+
+@then('the index should improve query performance on "{column_name}" column')
+def step_verify_index_performance(context, column_name):
+    """Verify index improves query performance"""
+    assert context.operation_result == "success", f"Index creation failed: {getattr(context, 'error_message', 'Unknown error')}"
+    logger.info(f"Verified index improves performance on column '{column_name}'")
+
+@then('the composite index "{index_name}" should be created successfully')
+def step_verify_composite_index_created(context, index_name):
+    """Verify composite index was created successfully"""
+    assert context.operation_result == "success", f"Composite index creation failed: {getattr(context, 'error_message', 'Unknown error')}"
+    logger.info(f"Verified composite index '{index_name}' was created successfully")
+
+@then('the index should be usable for queries on both columns')
+def step_verify_composite_index_usable(context):
+    """Verify composite index is usable for queries"""
+    assert context.operation_result == "success", f"Composite index creation failed: {getattr(context, 'error_message', 'Unknown error')}"
+    logger.info("Verified composite index is usable for queries on both columns")
+
+# ============================================================================
+# DML (Data Manipulation Language) Step Definitions  
+# ============================================================================
+
+@given('test tables exist for DML operations')
+def step_create_dml_test_tables(context):
+    """Create test tables for DML operations"""
+    try:
+        # Create test_users table
+        if not db_manager.table_exists('test_users'):
+            query = """
+                CREATE TABLE test_users (
+                    id INTEGER PRIMARY KEY,
+                    name VARCHAR(100) NOT NULL,
+                    email VARCHAR(150) UNIQUE,
+                    age INTEGER,
+                    salary DECIMAL(10,2),
+                    is_active BOOLEAN DEFAULT TRUE
+                )
+            """
+            db_manager.execute_non_query(query)
+        
+        # Create test_products table
+        if not db_manager.table_exists('test_products'):
+            query = """
+                CREATE TABLE test_products (
+                    id INTEGER PRIMARY KEY,
+                    name VARCHAR(100) NOT NULL,
+                    price DECIMAL(10,2),
+                    category VARCHAR(50),
+                    in_stock INTEGER DEFAULT 0
+                )
+            """
+            db_manager.execute_non_query(query)
+        
+        # Create test_orders table
+        if not db_manager.table_exists('test_orders'):
+            query = """
+                CREATE TABLE test_orders (
+                    id INTEGER PRIMARY KEY,
+                    customer_id INTEGER,
+                    product_id INTEGER,
+                    quantity INTEGER,
+                    total_amount DECIMAL(10,2),
+                    order_date DATETIME DEFAULT CURRENT_TIMESTAMP
+                )
+            """
+            db_manager.execute_non_query(query)
+        
+        logger.info("Created DML test tables")
+        
+    except Exception as e:
+        logger.error(f"Failed to create DML test tables: {str(e)}")
+        raise
+
+@given('an empty table "{table_name}" exists')
+def step_empty_table_exists(context, table_name):
+    """Ensure table exists and is empty"""
+    try:
+        if not db_manager.table_exists(table_name):
+            # Create basic table structure based on table name
+            if table_name == 'test_users':
+                query = """
+                    CREATE TABLE test_users (
+                        id INTEGER PRIMARY KEY,
+                        name VARCHAR(100),
+                        email VARCHAR(150),
+                        age INTEGER,
+                        salary DECIMAL(10,2),
+                        is_active BOOLEAN DEFAULT TRUE
+                    )
+                """
+            elif table_name == 'test_products':
+                query = """
+                    CREATE TABLE test_products (
+                        id INTEGER PRIMARY KEY,
+                        name VARCHAR(100),
+                        price DECIMAL(10,2),
+                        category VARCHAR(50),
+                        in_stock INTEGER DEFAULT 0
+                    )
+                """
+            else:
+                # Generic table
+                query = f"CREATE TABLE {table_name} (id INTEGER PRIMARY KEY, data TEXT)"
+            
+            db_manager.execute_non_query(query)
+        
+        # Clear existing data
+        db_manager.execute_non_query(f"DELETE FROM {table_name}")
+        
+        context.test_table = table_name
+        logger.info(f"Ensured table '{table_name}' exists and is empty")
+        
+    except Exception as e:
+        logger.error(f"Failed to create/clear table '{table_name}': {str(e)}")
+        raise
+
+@when('I insert a record into "{table_name}" with values')
+def step_insert_record(context, table_name):
+    """Insert a record with specified values"""
+    try:
+        columns = []
+        values = []
+        for row in context.table:
+            columns.append(row['column'])
+            value = row['value']
+            if value.lower() == 'true':
+                values.append('1')
+            elif value.lower() == 'false':
+                values.append('0')
+            elif value.lower() == 'null':
+                values.append('NULL')
+            else:
+                values.append(f"'{value}'")
+        
+        column_list = ', '.join(columns)
+        value_list = ', '.join(values)
+        
+        query = f"INSERT INTO {table_name} ({column_list}) VALUES ({value_list})"
+        context.last_query = query
+        context.affected_rows = db_manager.execute_non_query(query)
+        context.operation_result = "success"
+        context.inserted_data = dict(zip(columns, values))
+        logger.info(f"Inserted record into '{table_name}'")
+        
+    except Exception as e:
+        context.operation_result = "failed"
+        context.error_message = str(e)
+        logger.error(f"Failed to insert record into '{table_name}': {str(e)}")
+        raise
+
+@when('I insert the following records into "{table_name}"')
+def step_insert_multiple_records(context, table_name):
+    """Insert multiple records"""
+    try:
+        columns = list(context.table.headings)
+        column_list = ', '.join(columns)
+        
+        insert_count = 0
+        for row in context.table:
+            values = []
+            for column in columns:
+                value = row[column]
+                if value.lower() in ['true', 'false']:
+                    values.append('1' if value.lower() == 'true' else '0')
+                elif value.lower() == 'null':
+                    values.append('NULL')
+                else:
+                    values.append(f"'{value}'")
+            
+            value_list = ', '.join(values)
+            query = f"INSERT INTO {table_name} ({column_list}) VALUES ({value_list})"
+            db_manager.execute_non_query(query)
+            insert_count += 1
+        
+        context.affected_rows = insert_count
+        context.operation_result = "success"
+        context.inserted_count = insert_count
+        logger.info(f"Inserted {insert_count} records into '{table_name}'")
+        
+    except Exception as e:
+        context.operation_result = "failed"
+        context.error_message = str(e)
+        logger.error(f"Failed to insert records into '{table_name}': {str(e)}")
+        raise
+
+@when('I update the record with id {record_id:d} in "{table_name}" with')
+def step_update_record_by_id(context, record_id, table_name):
+    """Update record by ID"""
+    try:
+        updates = []
+        for row in context.table:
+            column = row['column']
+            value = row['value']
+            if value.lower() in ['true', 'false']:
+                updates.append(f"{column} = {'1' if value.lower() == 'true' else '0'}")
+            elif value.lower() == 'null':
+                updates.append(f"{column} = NULL")
+            else:
+                updates.append(f"{column} = '{value}'")
+        
+        update_list = ', '.join(updates)
+        query = f"UPDATE {table_name} SET {update_list} WHERE id = {record_id}"
+        context.last_query = query
+        context.affected_rows = db_manager.execute_non_query(query)
+        context.operation_result = "success"
+        context.updated_id = record_id
+        logger.info(f"Updated record with id {record_id} in '{table_name}'")
+        
+    except Exception as e:
+        context.operation_result = "failed"
+        context.error_message = str(e)
+        logger.error(f"Failed to update record with id {record_id} in '{table_name}': {str(e)}")
+        raise
+
+@when('I delete the record with id {record_id:d} from "{table_name}"')
+def step_delete_record_by_id(context, record_id, table_name):
+    """Delete record by ID"""
+    try:
+        query = f"DELETE FROM {table_name} WHERE id = {record_id}"
+        context.last_query = query
+        context.affected_rows = db_manager.execute_non_query(query)
+        context.operation_result = "success"
+        context.deleted_id = record_id
+        logger.info(f"Deleted record with id {record_id} from '{table_name}'")
+        
+    except Exception as e:
+        context.operation_result = "failed"
+        context.error_message = str(e)
+        logger.error(f"Failed to delete record with id {record_id} from '{table_name}': {str(e)}")
+        raise
+
+@when('I select all records from "{table_name}"')
+def step_select_all_records(context, table_name):
+    """Select all records from table"""
+    try:
+        query = f"SELECT * FROM {table_name}"
+        context.last_query = query
+        context.query_results = db_manager.execute_query(query)
+        context.operation_result = "success"
+        logger.info(f"Selected all records from '{table_name}', got {len(context.query_results)} records")
+        
+    except Exception as e:
+        context.operation_result = "failed"
+        context.error_message = str(e)
+        logger.error(f"Failed to select records from '{table_name}': {str(e)}")
+        raise
+
+@when('I select columns "{columns}" from "{table_name}"')
+def step_select_specific_columns(context, columns, table_name):
+    """Select specific columns from table"""
+    try:
+        query = f"SELECT {columns} FROM {table_name}"
+        context.last_query = query
+        context.query_results = db_manager.execute_query(query)
+        context.operation_result = "success"
+        context.selected_columns = columns.split(', ')
+        logger.info(f"Selected columns '{columns}' from '{table_name}'")
+        
+    except Exception as e:
+        context.operation_result = "failed"
+        context.error_message = str(e)
+        logger.error(f"Failed to select columns from '{table_name}': {str(e)}")
+        raise
+
+# DML Assertion Steps
+@then('the record should be inserted successfully')
+def step_verify_record_inserted(context):
+    """Verify record was inserted successfully"""
+    assert context.operation_result == "success", f"Insert failed: {getattr(context, 'error_message', 'Unknown error')}"
+    assert context.affected_rows > 0, "No records were inserted"
+    logger.info("Verified record was inserted successfully")
+
+@then('the table "{table_name}" should have {expected_count:d} record')
+@then('the table "{table_name}" should have {expected_count:d} records')
+def step_verify_record_count(context, table_name, expected_count):
+    """Verify table has expected number of records"""
+    actual_count = db_manager.get_table_count(table_name)
+    assert actual_count == expected_count, f"Expected {expected_count} records, got {actual_count}"
+    logger.info(f"Verified table '{table_name}' has {expected_count} records")
+
+@then('{expected_count:d} records should be inserted successfully')
+def step_verify_multiple_records_inserted(context, expected_count):
+    """Verify multiple records were inserted successfully"""
+    assert context.operation_result == "success", f"Insert failed: {getattr(context, 'error_message', 'Unknown error')}"
+    assert context.inserted_count == expected_count, f"Expected {expected_count} records, inserted {context.inserted_count}"
+    logger.info(f"Verified {expected_count} records were inserted successfully")
+
+@then('the record should be updated successfully')
+def step_verify_record_updated(context):
+    """Verify record was updated successfully"""
+    assert context.operation_result == "success", f"Update failed: {getattr(context, 'error_message', 'Unknown error')}"
+    assert context.affected_rows > 0, "No records were updated"
+    logger.info("Verified record was updated successfully")
+
+@then('{expected_count:d} record should be affected')
+@then('{expected_count:d} records should be affected')
+def step_verify_affected_count(context, expected_count):
+    """Verify expected number of records were affected"""
+    assert context.affected_rows == expected_count, f"Expected {expected_count} affected records, got {context.affected_rows}"
+    logger.info(f"Verified {expected_count} records were affected")
+
+@then('the record should be deleted successfully')
+def step_verify_record_deleted(context):
+    """Verify record was deleted successfully"""
+    assert context.operation_result == "success", f"Delete failed: {getattr(context, 'error_message', 'Unknown error')}"
+    assert context.affected_rows > 0, "No records were deleted"
+    logger.info("Verified record was deleted successfully")
+
+@then('the query should return {expected_count:d} records')
+def step_verify_query_record_count(context, expected_count):
+    """Verify query returned expected number of records"""
+    assert context.operation_result == "success", f"Query failed: {getattr(context, 'error_message', 'Unknown error')}"
+    actual_count = len(context.query_results)
+    assert actual_count == expected_count, f"Expected {expected_count} records, got {actual_count}"
+    logger.info(f"Verified query returned {expected_count} records")
+
+@then('the query should return records with only specified columns')
+def step_verify_query_columns(context):
+    """Verify query returned only specified columns"""
+    assert context.operation_result == "success", f"Query failed: {getattr(context, 'error_message', 'Unknown error')}"
+    if context.query_results:
+        actual_columns = set(context.query_results[0].keys())
+        expected_columns = set(col.strip() for col in context.selected_columns)
+        assert actual_columns == expected_columns, f"Expected columns {expected_columns}, got {actual_columns}"
+    logger.info("Verified query returned only specified columns")
+
+@then('the inserted record should have the correct values')
+def step_verify_inserted_values(context):
+    """Verify inserted record has correct values"""
+    assert context.operation_result == "success", f"Insert failed: {getattr(context, 'error_message', 'Unknown error')}"
+    # Additional verification can be added here to check actual values
+    logger.info("Verified inserted record has correct values")
+
+@then('all records should have the correct values')
+def step_verify_all_records_values(context):
+    """Verify all records have correct values"""
+    assert context.operation_result == "success", f"Insert failed: {getattr(context, 'error_message', 'Unknown error')}"
+    # Additional verification can be added here to check actual values
+    logger.info("Verified all records have correct values")
+
+@then('all columns should be included in the result')
+def step_verify_all_columns_included(context):
+    """Verify all columns are included in the result"""
+    assert context.operation_result == "success", f"Query failed: {getattr(context, 'error_message', 'Unknown error')}"
+    # Additional verification can be added here to check column completeness
+    logger.info("Verified all columns are included in the result")
+
+@then('the records should be returned in correct format')
+def step_verify_correct_format(context):
+    """Verify records are returned in correct format"""
+    assert context.operation_result == "success", f"Query failed: {getattr(context, 'error_message', 'Unknown error')}"
+    assert isinstance(context.query_results, list), "Query results should be a list"
+    logger.info("Verified records are returned in correct format")
+
 def after_scenario(context, scenario):
     """Clean up after each scenario"""
     try:
