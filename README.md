@@ -1,436 +1,259 @@
-# BDD Python Database Test Automation Suite
+# BDD Database Test Automation Suite
 
-A comprehensive Behavior-Driven Development (BDD) test automation suite for relational database testing using Python and Behave.
+A comprehensive Behavior-Driven Development (BDD) test automation framework for database operations using Python and Behave.
 
 ## Features
 
-- **BDD Testing Framework**: Uses Behave (Python's Cucumber equivalent) for readable test scenarios
-- **Database Testing**: Comprehensive CRUD operations testing for relational databases
-- **Multiple Database Support**: SQLite, PostgreSQL, and MySQL support
-- **Performance Testing**: Built-in performance and stress testing scenarios
-- **Concurrent Testing**: Multi-threaded database operation testing
-- **Transaction Testing**: Transaction rollback and commit testing
-- **Data Validation**: Data integrity and constraint validation
-- **Flexible Configuration**: Environment-based configuration with multiple profiles
-- **Detailed Reporting**: HTML and JUnit report generation
-- **Test Data Management**: Automated test data setup and cleanup
+### 📋 **Test Coverage**
+- **Database Operations**: CRUD operations, transactions, data integrity
+- **Performance Testing**: Bulk operations, concurrent access, query optimization
+- **DDL Operations**: CREATE, ALTER, DROP, TRUNCATE, Indexes, Constraints
+- **DML Operations**: INSERT, UPDATE, DELETE, SELECT with complex queries
+- **Error Handling**: Constraint violations, connection failures, data validation
 
-## Project Structure
+### 🔧 **Technical Stack**
+- **Framework**: Behave (Python BDD framework)
+- **Database**: SQLite (configurable for PostgreSQL, MySQL)
+- **ORM**: SQLAlchemy
+- **Testing**: Faker for test data generation
+- **Reporting**: JUnit XML, HTML, JSON reports
 
+### 📁 **Project Structure**
 ```
 bdd-database-test-suite/
-├── config/
-│   ├── database_config.py      # Database connection configuration
-│   └── test_config.py          # Test execution configuration
 ├── features/
-│   ├── steps/
-│   │   └── database_steps.py   # Step definitions for BDD scenarios
-│   ├── environment.py          # Behave environment hooks
-│   ├── database_operations.feature      # Main database operation scenarios
-│   └── performance_testing.feature     # Performance testing scenarios
+│   ├── database_operations.feature      # Basic CRUD operations
+│   ├── performance_testing.feature      # Performance test scenarios
+│   ├── ddl_operations.feature          # DDL test scenarios (NEW)
+│   ├── dml_operations.feature          # DML test scenarios (NEW)
+│   ├── environment.py                  # Test environment setup
+│   └── steps/
+│       └── database_steps.py           # Step definitions
+├── config/
+│   ├── database_config.py              # Database configuration
+│   └── test_config.py                  # Test configuration
 ├── utils/
-│   └── database_utils.py       # Database utilities and models
-├── data/                       # Test data files (auto-generated)
-├── reports/                    # Test reports (auto-generated)
-├── tests/                      # Additional test files
-├── requirements.txt            # Python dependencies
-├── behave.ini                  # Behave configuration
-└── README.md                   # This file
+│   └── database_utils.py               # Database utilities
+├── run_tests.py                        # Test runner script
+└── requirements.txt                    # Dependencies
+
 ```
 
-## Installation
+## 🚀 **Getting Started**
 
-1. **Clone or navigate to the project directory**:
-   ```bash
-   cd ~/bdd-database-test-suite
-   ```
+### Prerequisites
+- Python 3.7+
+- Virtual environment support
 
-2. **Create a virtual environment** (recommended):
-   ```bash
-   python -m venv venv
-   source venv/bin/activate  # On Windows: venv\Scripts\activate
-   ```
-
-3. **Install dependencies**:
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-4. **Set up the database** (for non-SQLite databases):
-   ```bash
-   # For PostgreSQL
-   createdb test_db
-   
-   # For MySQL
-   mysql -u root -p -e "CREATE DATABASE test_db;"
-   ```
-
-## Configuration
-
-The suite supports multiple configuration methods:
-
-### 1. Environment Variables
-
-Set these environment variables to configure the test suite:
-
+### Installation
+1. Clone the repository:
 ```bash
-export DB_DRIVER=sqlite          # Database driver (sqlite, postgresql, mysql)
-export DB_HOST=localhost         # Database host
-export DB_PORT=5432             # Database port
-export DB_NAME=test_db          # Database name
-export DB_USER=test_user        # Database username
-export DB_PASSWORD=test_password # Database password
+git clone https://github.com/yourusername/bdd-database-test-suite.git
+cd bdd-database-test-suite
 ```
 
-### 2. Configuration Profiles
-
-Use predefined profiles in `config/test_config.py`:
-
-- `local`: SQLite database for local development
-- `ci`: Optimized for CI/CD environments
-- `staging`: PostgreSQL for staging environment
-- `production`: Production-like settings
-
-### 3. Behave Configuration
-
-Modify `behave.ini` to change test execution behavior:
-
-```ini
-[behave]
-format = pretty
-show_timings = true
-junit = true
-junit_directory = reports/junit
+2. Set up the environment:
+```bash
+python run_tests.py --setup
 ```
 
-## Running Tests
+3. Validate the setup:
+```bash
+python run_tests.py --validate
+```
 
-### Basic Test Execution
+### Running Tests
 
+#### Basic Commands
 ```bash
 # Run all tests
-behave
+venv/bin/python run_tests.py
 
 # Run specific feature
-behave features/database_operations.feature
+venv/bin/python run_tests.py --feature=ddl_operations.feature
 
-# Run specific scenario
-behave features/database_operations.feature -n "Create a new user"
-```
-
-### Test Filtering with Tags
-
-```bash
-# Run performance tests only
-behave --tags=@performance
-
-# Skip slow tests
-behave --tags=~@slow
-
-# Run specific test types
-behave --tags=@crud,@validation
-```
-
-### Configuration Options
-
-```bash
-# Use specific profile
-behave -D profile=staging
-
-# Set custom timeout
-behave -D timeout=60
-
-# Use different database
-behave -D db_driver=postgresql
+# Run with tags
+venv/bin/behave --tags=@ddl
+venv/bin/behave --tags=@dml
+venv/bin/behave --tags=@performance
 
 # Generate reports
-behave -D generate_reports=true
+venv/bin/python run_tests.py --generate-reports --junit
 ```
 
-### Advanced Options
-
+#### Advanced Options
 ```bash
-# Dry run (don't execute, just validate)
-behave --dry-run
+# Run with specific database driver
+venv/bin/python run_tests.py --db-driver=postgresql
 
-# Stop on first failure
-behave --stop
+# Run with timeout
+venv/bin/python run_tests.py --timeout=60
 
-# Run with specific formatter
-behave --format=json --outfile=reports/results.json
+# Run specific scenario
+venv/bin/python run_tests.py --scenario="Create a new table"
 
-# Parallel execution
-behave --jobs=4
+# Dry run (validate scenarios)
+venv/bin/behave --dry-run
 ```
 
-## Test Scenarios
+## 📊 **Test Categories**
 
-### Database Operations
+### 1. **DDL Operations** (`features/ddl_operations.feature`)
+- **Table Management**: CREATE, ALTER, DROP tables
+- **Index Operations**: CREATE, DROP indexes (simple and composite)
+- **Constraints**: PRIMARY KEY, FOREIGN KEY, UNIQUE, CHECK, NOT NULL
+- **Data Definition**: TRUNCATE, Views, Schema modifications
+- **Error Handling**: Constraint violations, invalid operations
 
-The `database_operations.feature` file includes:
+**Example Scenarios**:
+```gherkin
+@ddl @create
+Scenario: Create a new table with various column types
+  Given no table named "test_employees" exists
+  When I create a table "test_employees" with the following columns:
+    | name      | type          | constraints          |
+    | id        | INTEGER       | PRIMARY KEY          |
+    | name      | VARCHAR(100)  | NOT NULL             |
+    | email     | VARCHAR(150)  | UNIQUE NOT NULL      |
+  Then the table "test_employees" should be created successfully
+  And the table "test_employees" should have 3 columns
 
-- **CRUD Operations**: Create, Read, Update, Delete user records
-- **Data Validation**: Email format validation, unique constraints
-- **Inventory Management**: Product stock tracking
-- **Order Processing**: Order creation and history tracking
-- **Transaction Management**: Rollback and commit testing
-- **Complex Queries**: Multi-table joins and aggregations
+@ddl @truncate
+Scenario: Truncate table data
+  Given a table "test_data" exists with 100 rows
+  When I truncate table "test_data"
+  Then the table "test_data" should be empty
+  And the table structure should remain intact
+```
 
-### Performance Testing
+### 2. **DML Operations** (`features/dml_operations.feature`)
+- **INSERT**: Single records, batch inserts, auto-increment, default values
+- **UPDATE**: Single records, batch updates, calculated values, JOIN updates
+- **DELETE**: Single records, conditional deletes, bulk deletes
+- **SELECT**: Basic queries, filtering, sorting, grouping, aggregation, JOINs
+- **Transactions**: COMMIT, ROLLBACK, error handling
+- **Performance**: Bulk operations, batch processing
 
-The `performance_testing.feature` file includes:
+**Example Scenarios**:
+```gherkin
+@dml @insert
+Scenario: Insert single record with all columns
+  Given an empty table "test_users" exists
+  When I insert a record into "test_users" with values:
+    | column    | value            |
+    | name      | John Doe         |
+    | email     | john@example.com |
+    | age       | 30               |
+  Then the record should be inserted successfully
+  And the table "test_users" should have 1 record
 
-- **Bulk Operations**: Creating thousands of records
-- **Concurrent Testing**: Multiple simultaneous database operations
-- **Query Performance**: Large dataset query optimization
-- **Connection Pooling**: Database connection management
-- **Stress Testing**: High-load scenarios
-- **Memory Management**: Resource usage monitoring
+@dml @select
+Scenario: Select with WHERE condition
+  Given a table "test_employees" exists with sample data
+  When I select records from "test_employees" where salary > 50000
+  Then the query should return only matching records
+  And all returned records should have salary greater than 50000
+```
 
-## Database Models
+### 3. **Performance Testing** (`features/performance_testing.feature`)
+- **Bulk Operations**: Large dataset handling
+- **Concurrent Access**: Multi-user scenarios
+- **Query Performance**: Execution time validation
+- **Memory Usage**: Resource consumption monitoring
 
-The suite includes predefined models for testing:
+### 4. **Database Operations** (`features/database_operations.feature`)
+- **CRUD Operations**: Create, Read, Update, Delete
+- **Data Integrity**: Constraint validation
+- **Transaction Management**: ACID compliance
+- **Connection Handling**: Database connectivity
 
+## 🎯 **Key Features**
+
+### Comprehensive Test Assertions
+- **DDL Assertions**: Table existence, column counts, constraint validation
+- **DML Assertions**: Record counts, data accuracy, performance metrics
+- **Error Assertions**: Exception handling, constraint violations
+- **Performance Assertions**: Execution time, resource usage
+
+### Test Data Management
+- **Faker Integration**: Realistic test data generation
+- **Database Seeding**: Consistent test data setup
+- **Data Cleanup**: Automatic cleanup between scenarios
+- **Transaction Isolation**: Independent test execution
+
+### Reporting & Analysis
+- **Multiple Formats**: Pretty, JSON, HTML, JUnit XML
+- **Performance Metrics**: Query execution times, resource usage
+- **Failure Analysis**: Detailed error reporting
+- **Test Coverage**: Comprehensive scenario coverage
+
+## 🔧 **Configuration**
+
+### Database Configuration (`config/database_config.py`)
 ```python
-# User model
-class User:
-    id: int
-    username: str
-    email: str
-    created_at: datetime
-    is_active: bool
-
-# Product model
-class Product:
-    id: int
-    name: str
-    price: float
-    category: str
-    in_stock: int
-    created_at: datetime
-
-# Order model
-class Order:
-    id: int
-    user_id: int
-    product_id: int
-    quantity: int
-    total_amount: float
-    order_date: datetime
-    status: str
-```
-
-## Sample Test Data
-
-The suite automatically generates test data:
-
-- **Users**: 3 sample users with different profiles
-- **Products**: 3 sample products across different categories
-- **Orders**: 3 sample orders linking users and products
-
-## Reporting
-
-The suite generates multiple report formats:
-
-### HTML Reports
-```bash
-behave --format=html --outfile=reports/results.html
-```
-
-### JUnit XML Reports
-```bash
-behave --junit --junit-directory=reports/junit
-```
-
-### JSON Reports
-```bash
-behave --format=json --outfile=reports/results.json
-```
-
-## Extending the Suite
-
-### Adding New Scenarios
-
-1. **Create a new feature file** in the `features/` directory:
-   ```gherkin
-   Feature: New Database Feature
-     As a test engineer
-     I want to test new functionality
-     So that I can ensure it works correctly
-   
-     Scenario: Test new functionality
-       Given the database is connected
-       When I perform a new operation
-       Then the operation should succeed
-   ```
-
-2. **Add corresponding step definitions** in `features/steps/database_steps.py`:
-   ```python
-   @when('I perform a new operation')
-   def step_new_operation(context):
-       # Implementation here
-       pass
-   ```
-
-### Adding New Database Models
-
-1. **Define the model** in `utils/database_utils.py`:
-   ```python
-   class NewModel(Base):
-       __tablename__ = 'new_table'
-       
-       id = Column(Integer, primary_key=True)
-       name = Column(String(100), nullable=False)
-       # Add other columns
-   ```
-
-2. **Update the initialization** in the same file:
-   ```python
-   def init_test_database():
-       # Existing code...
-       Base.metadata.create_all(db_manager.engine)
-   ```
-
-### Custom Configuration
-
-Create environment-specific configurations in `config/test_config.py`:
-
-```python
-PROFILES["custom"] = TestConfig(
-    db_driver="postgresql",
-    db_host="custom-db.example.com",
-    performance_threshold=3.0,
-    # Other settings...
-)
-```
-
-## Troubleshooting
-
-### Common Issues
-
-1. **Database Connection Errors**:
-   - Verify database credentials
-   - Check database service is running
-   - Ensure proper permissions
-
-2. **Step Definition Not Found**:
-   - Check step definition syntax
-   - Verify imports in step files
-   - Ensure proper project structure
-
-3. **Performance Test Failures**:
-   - Adjust performance thresholds
-   - Check system resources
-   - Verify database configuration
-
-### Debug Mode
-
-Run tests with debug information:
-
-```bash
-behave --logging-level=DEBUG
-```
-
-### Test Data Issues
-
-Reset test data manually:
-
-```bash
-python -c "from utils.database_utils import *; cleanup_test_database(); init_test_database(); insert_test_data()"
-```
-
-## CI/CD Integration
-
-### GitHub Actions Example
-
-```yaml
-name: Database Tests
-
-on: [push, pull_request]
-
-jobs:
-  test:
-    runs-on: ubuntu-latest
-    
-    steps:
-    - uses: actions/checkout@v2
-    
-    - name: Set up Python
-      uses: actions/setup-python@v2
-      with:
-        python-version: 3.9
-    
-    - name: Install dependencies
-      run: |
-        pip install -r requirements.txt
-    
-    - name: Run tests
-      run: |
-        behave -D profile=ci --format=junit --junit-directory=reports/junit
-    
-    - name: Upload test results
-      uses: actions/upload-artifact@v2
-      with:
-        name: test-results
-        path: reports/
-```
-
-### Jenkins Pipeline Example
-
-```groovy
-pipeline {
-    agent any
-    
-    stages {
-        stage('Setup') {
-            steps {
-                sh 'pip install -r requirements.txt'
-            }
-        }
-        
-        stage('Test') {
-            steps {
-                sh 'behave -D profile=ci --format=junit --junit-directory=reports/junit'
-            }
-        }
-        
-        stage('Reports') {
-            steps {
-                publishTestResults testResultsPattern: 'reports/junit/*.xml'
-            }
-        }
-    }
+DEFAULT_CONFIG = {
+    'driver': 'sqlite',
+    'database': 'test.db',
+    'host': 'localhost',
+    'port': 5432,
+    'username': 'testuser',
+    'password': 'testpass'
 }
 ```
 
-## Best Practices
+### Test Configuration (`config/test_config.py`)
+- Environment-specific settings
+- Test data configuration
+- Performance thresholds
+- Timeout settings
 
-1. **Test Isolation**: Each scenario should be independent
-2. **Data Management**: Use fresh test data for each test
-3. **Performance Monitoring**: Set realistic performance thresholds
-4. **Error Handling**: Implement proper error handling in step definitions
-5. **Documentation**: Keep scenarios readable and well-documented
-6. **Version Control**: Track changes to test scenarios and data
+## 📈 **Example Output**
 
-## Contributing
+```
+Feature: DDL (Data Definition Language) Operations
+  As a database administrator
+  I want to validate DDL operations
+  So that I can ensure proper schema management
+
+  ✓ Create a new table with various column types
+  ✓ Create index on table columns
+  ✓ Truncate table data
+  ✓ Drop table safely
+
+Feature: DML (Data Manipulation Language) Operations
+  As a database user
+  I want to validate DML operations
+  So that I can ensure proper data manipulation
+
+  ✓ Insert single record with all columns
+  ✓ Update multiple records with condition
+  ✓ Select with WHERE condition
+  ✓ Delete records with complex conditions
+
+2 features passed, 0 failed
+8 scenarios passed, 0 failed
+24 steps passed, 0 failed
+```
+
+## 🤝 **Contributing**
 
 1. Fork the repository
 2. Create a feature branch
-3. Add tests for new functionality
-4. Ensure all tests pass
-5. Submit a pull request
+3. Add your test scenarios
+4. Implement step definitions
+5. Run tests to ensure functionality
+6. Submit a pull request
 
-## License
+## 📝 **License**
 
 This project is licensed under the MIT License - see the LICENSE file for details.
 
-## Support
+## 🔍 **Support**
 
-For issues and questions:
-- Check the troubleshooting section
-- Review test logs in the `reports/` directory
-- Create an issue in the project repository
+- **Issues**: Report bugs and request features
+- **Documentation**: Comprehensive guides and examples
+- **Community**: Discussion forums and support channels
 
 ---
 
-**Happy Testing!** 🚀 
+**Built with ❤️ for comprehensive database testing** 
